@@ -1,0 +1,12 @@
+To Install mod_auth_cookie for Apache 2.0:
+
+Unix/Linux:
+- Use the Makefile: "make; make install". You may need to edit the Makefile to point to your apxs.
+- Optionally, copy auth_cookie.conf to your /etc/httpd/conf.d directory (RHEL, Fedora) or /etc/apache2/conf.d (Others)
+
+Windows:
+- Drop the files into your src/modules/aaa folder and add the .dsp project to your apache workspace.
+
+
+Documentation written by David Rusenko
+david@weebly.com

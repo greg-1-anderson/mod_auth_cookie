@@ -1,0 +1,6 @@
+*.o
+*.la
+*.lo
+*.slo
+.libs
+crypt_sample

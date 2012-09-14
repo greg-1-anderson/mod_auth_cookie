@@ -1,0 +1,108 @@
+All this apache cookie auth module does is collect the cookie if it exists, and
+convert it into a Basic Authentication header.  Then you use the normal
+User-ID/Password mechanisms to grant authorization to the directory/page you
+are protecting.
+
+So, the first step is to get password-based authentication & authorization
+working.  Then add the cookies.
+
+For example, using the standard mod_auth module for authorization, I might have
+this configuration:
+
+--cut here--
+AuthName "Members Only"
+AuthType Basic
+AuthUserFile /web/config/users.txt
+AuthGroupFile /web/config/groups.txt
+Require group members
+--cut here--
+
+What this does is use Basic Authentication to collect your credentials, then
+uses the users.txt and groups.txt files to check your password and determine if
+you are allowed access (in this case if you are a member of the 'members' group.
+
+Now, to use the Cookie based module, I added the one directive AuthCookieName
+to make the .htaccess file look like this:
+
+--cut here--
+AuthName "Members Only"
+AuthType Basic
+AuthUserFile /web/config/users.txt
+AuthGroupFile /web/config/groups.txt
+Require group members
+AuthCookieName Login
+--cut here--
+
+What this does is look for a cookie labeled "Login".  If it exists, the module
+converts it into the Authentication header needed by the original authorization
+module.  The rest works as before.  If the cookie doesn't exist, then the server
+will send back a "authorization required" message to the web browser which will
+then prompt for a user id an password, which will then be used as normal.
+
+The full list of configuration directives appears below.
+
+   AuthCookieName             CookieName
+   AuthCookieOverride         [ On | Off ] Default = Off
+   AuthCookieBase64           [ On | Off ] Default = Off
+   AuthCookieEnv              EnvironmentVariableName
+   AuthCookieUnauthRedirect   url
+   AuthCookieEnvRedirect      url
+   AuthCookieEncrypt          shared_secret
+
+   AuthCookieName - the name of the cookie to consult for authorization information
+
+   AuthCookieOverride - if request contains both a cookie and an Authorization
+       header, the cookie will be the one that is used.
+
+   AuthCookieBase64 - cookie contains "username:password" already base64 encoded
+       as would be flowed in the normal Authorization header. This must be enabled
+       to use the more advanced features such as AuthCookieEnv and AuthCookieEncrypt.
+
+   AuthCookieEnv - allows an environment variable to also be set during authenitcation.
+       The AuthCookieEnv directive specifies the name of the environment variable to
+       set; the environment variable value is stored after the username and password,
+       separated by a <tab> character.  Thus, the full contents of the cookie will
+       be "environment value<tab>username:password".
+
+       LIMITATION: AuthCookieEnv is only respected when in AuthCookieBase64 mode.
+
+   AuthCookieUnauthRedirect - if the cookie is not set, then redirect to this location.
+
+   AuthCookieEnvRedirect - if the cookie does not contain the optional auxiliary
+       authentication information, then redirect to this location.
+
+   AuthCookieEnrypt - cookie is encrypted using the specified encryption key,
+       which should by very long.  32 characters is good.  The format for the
+       cookie then becomes "iv-vector mcrypt(data)", where 'data' contains the
+       full unencrypted cookie value "environment value<tab>username:password".
+       Sample code to create an encrypted cookie is available in the README
+       file (php) and in crypt_sample.c.
+
+       LIMITATION:  AuthCookieEncrypt is only supported in AuthCookieBase64 mode.
+       The cookie value should be encrypted and prepended with the IV before being
+       base-64 encoded.
+
+Load using:
+   LoadModule auth_cookie_module modules/mod_auth_cookie.so
+
+PHP code to encrypt:
+
+  function php_encrypt($data, $key) {
+    $td = mcrypt_module_open("rijndael-128", "", MCRYPT_MODE_CBC, "");
+    $ks = mcrypt_enc_get_key_size($td);
+
+    $iv = mcrypt_create_iv(mcrypt_enc_get_iv_size($td), MCRYPT_DEV_URANDOM);
+
+    $ks = mcrypt_enc_get_key_size($td);
+    $key = substr($key, 0, $ks);
+
+    mcrypt_generic_init($td, $key, $iv);
+    $encrypted = mcrypt_generic($td, $data);
+    mcrypt_generic_deinit($td);
+
+    mcrypt_module_close($td);
+
+    return base64_encode($iv . $encrypted);
+  }
+
+For C code to encrypt, see crypt_sample.c.
